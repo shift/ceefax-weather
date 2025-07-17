@@ -1,0 +1,71 @@
+map_template = [
+    "                                                                            ",
+    "                  PPPPPPPPPPPPPPPPPPPPPPP                                   ",
+    "                 PPPPPPPPPPPPPPPPPPPPPPPPP                                  ",
+    "                PPPPPPPPPPPPPPPPPPPPPPPPPPP                                 ",
+    "               PPPPPPPPPPPPPPPPPPPPPPPPPPPPP                                ",
+    "  SSSSSSSSSSSS PPPPPPPPPPPPPPPPPPPPPPPMMMMMMMM LLLLLLLLLLLLL                 ",
+    " SSSSSSSSSSSSSSS PPPPPPPPPPPPPPPPPPPMMMMMMMMMM LLLLLLLLLLLLLLL                ",
+    "SSSSSSSSSSSSSSSSSS PPPPPPPPPPPPPPMMMMMMMMMMMM LLLLLLLLLLLLLLLLL               ",
+    "SSSSSSSSSSSSSSSSSSSS  PPPPPPPPPMMMMMMMMMMMMMMFFFFFFFFFFLLLLLLLL               ",
+    "SSSSSSSSSSSSSSSSSSSSSS   PPPPPMMMMMMMMMMMMMMMFFFFFFFFFFFFLLLLLL               ",
+    "SSSSSSSSSSSSSSSSSSSSSS   MMMMMMMMMMMMMMMMMMMMFFFFFFFFFFFFFFLLLL               ",
+    "SSSSSSSSSSSSSSSSSSSSSS MMMMMMMMMMMMMMMMMMMMMMFFFFFFFFFFFFFFFLL               ",
+    "SSSSSSSSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMMMMMMMMFFFFFFFFFFFFFFFFF                ",
+    "SSSSSSSSSSSSSSSSSSSS MMMMMMMMMMMMMMMMMMMMMMMFFFFFFFFFFFFFFFF                 ",
+    "SSSSSSSSSSSSSSSSSS   MMMMMMMMMMMMMMMMMMMMMMFFFFFFFFFFFFFFF                  ",
+    " SSSSSSSSSSSSSSSS    KKKKKKKKMMMMMMMMMMMMMMFFFFFFFFFFFFFF                   ",
+    "  SSSSSSSSSSSSSS     KKKKKKKKKKKKKKMMMMMMMMFFFFFFFFFFFF                    ",
+    "   SSSSSSSSSSSS    KKKKKKKKKKKKKKKKZZZZZZZZFFFFFFFFFF                     ",
+    "                 KKKKKKKKKKKKKKKKZZZZZZZZZZ                               ",
+    "                ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                             ",
+    "               ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                            ",
+    "              ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                           ",
+    "               ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                            ",
+    "                ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ                             ",
+    "                  ZZZZZZZZZZZZZZZZZZZZZZZZZ                               ",
+    "                                                                            ",
+]
+
+[[regions]]
+name = "Mitte (Central)"
+city = "Berlin-Mitte"
+char = 'M'
+temp_pos = [40, 12]
+
+[[regions]]
+name = "Pankow (North)"
+city = "Pankow"
+char = 'P'
+temp_pos = [35, 3]
+
+[[regions]]
+name = "Spandau (West)"
+city = "Spandau"
+char = 'S'
+temp_pos = [10, 10]
+
+[[regions]]
+name = "Lichtenberg (East)"
+city = "Lichtenberg"
+char = 'L'
+temp_pos = [60, 8]
+
+[[regions]]
+name = "Steglitz-Zehlendorf (South)"
+city = "Zehlendorf"
+char = 'Z'
+temp_pos = [38, 20]
+
+[[regions]]
+name = "Friedrichshain"
+city = "Friedrichshain"
+char = 'F'
+temp_pos = [52, 14]
+
+[[regions]]
+name = "Kreuzberg"
+city = "Kreuzberg"
+char = 'K'
+temp_pos = [28, 16]
+

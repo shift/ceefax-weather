@@ -39,13 +39,13 @@ pub enum ViewState {
 fn spawn_fetch_thread(
     tx: mpsc::Sender<Result<AppData, String>>,
     country: Arc<config::Country>,
+    client: Arc<dyn wttr::WeatherClient>,
 ) {
     thread::spawn(move || {
-        let client = reqwest::blocking::Client::new();
         let mut weather_reports = std::collections::HashMap::new();
         let mut summaries = Vec::new();
         for region in country.regions.iter() {
-            match wttr::get_weather_data(&client, &region.city) {
+            match client.fetch(&region.city) {
                 Ok(report) => {
                     if let Some(condition) = report.current_condition.first() {
                         let desc = condition.weatherDesc.first().map_or("N/A", |d| &d.value);
@@ -86,10 +86,11 @@ fn spawn_fetch_thread(
 pub fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     country: config::Country,
+    client: Arc<dyn wttr::WeatherClient>,
 ) -> io::Result<Option<String>> {
     let country_arc = Arc::new(country);
     let (tx, rx) = mpsc::channel();
-    spawn_fetch_thread(tx.clone(), country_arc.clone());
+    spawn_fetch_thread(tx.clone(), country_arc.clone(), client.clone());
 
     let mut app_state = AppState::Loading;
     let mut view_state = ViewState::Main;
@@ -116,7 +117,7 @@ pub fn run_app(
                         KeyCode::Char('q') | KeyCode::Esc => return Ok(None),
                         KeyCode::Char('r') => {
                             app_state = AppState::Loading;
-                            spawn_fetch_thread(tx.clone(), country_arc.clone());
+                            spawn_fetch_thread(tx.clone(), country_arc.clone(), client.clone());
                         }
                         _ => {}
                     },
@@ -131,7 +132,7 @@ pub fn run_app(
                             }
                             KeyCode::Char('r') => {
                                 app_state = AppState::Loading;
-                                spawn_fetch_thread(tx.clone(), country_arc.clone());
+                                spawn_fetch_thread(tx.clone(), country_arc.clone(), client.clone());
                             }
                             _ => {}
                         },
@@ -189,7 +190,7 @@ pub fn run_app(
         if let AppState::Loaded { ref mut last_fetch, .. } = app_state {
             if last_fetch.elapsed() > config::REFRESH_INTERVAL {
                 app_state = AppState::Loading;
-                spawn_fetch_thread(tx.clone(), country_arc.clone());
+                spawn_fetch_thread(tx.clone(), country_arc.clone(), client.clone());
             }
         }
 
