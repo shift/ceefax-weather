@@ -114,17 +114,25 @@ pub fn main_ui(f: &mut Frame, data: &AppData, updated_at: &DateTime<Local>) {
 
     let blue_bg_style = Style::default().fg(config::CEEFAX_WHITE).bg(config::CEEFAX_BLUE);
     let title_widget = Paragraph::new(config::WEATHER_TITLE).style(blue_bg_style.bold());
-    let left_text_widget = Paragraph::new(data.left_text.as_str())
+    
+    let (left_desc, left_icon) = &data.left_text;
+    let left_text_widget = Paragraph::new(format!("{} {}", left_icon, left_desc))
         .style(blue_bg_style)
         .wrap(Wrap { trim: true });
         
-    let right_text_widget = Paragraph::new(Text::from(data.summaries.join("\n"))).style(blue_bg_style);
+    let summary_lines: Vec<Line> = data.summaries.iter()
+        .map(|(desc, icon)| Line::from(format!("{} {}", icon, desc)))
+        .collect();
+    let right_text_widget = Paragraph::new(Text::from(summary_lines)).style(blue_bg_style);
+
     let map_widget = draw_map_widget(&data.country, &data.reports);
     
+    let (footer_desc, footer_icon) = &data.footer_text;
     let footer_text = format!(
-        "[C]ountry [D]etails [R]efresh      Updated: {}      {}",
+        "[C]ountry [D]etails [R]efresh      Updated: {}      {} {}",
         updated_at.format("%H:%M:%S"),
-        data.footer_text
+        footer_icon,
+        footer_desc
     );
     let footer_widget = Paragraph::new(footer_text).style(blue_bg_style);
 
@@ -151,8 +159,12 @@ pub fn details_ui(f: &mut Frame, data: &AppData) {
     for (i, region) in data.country.regions.iter().enumerate() {
         if let Some(report) = data.reports.get(&region.name) {
             let condition = &report.current_condition[0];
+            let desc = &condition.weatherDesc[0].value;
+            let icon = wttr::get_weather_icon(desc);
             let title = format!("{}. -- {} --", i + 1, region.name);
+
             details_text.push(Line::from(Span::styled(title, Style::default().fg(config::CEEFAX_YELLOW).bold())));
+            details_text.push(Line::from(format!("   {} {}", icon, desc)));
             details_text.push(Line::from(format!("   Feels Like: {}°C", condition.FeelsLikeC)));
             details_text.push(Line::from(format!("   Wind: {} {} km/h", condition.winddir16Point, condition.windspeedKmph)));
             details_text.push(Line::from(format!("   Precip: {} mm", condition.precipMM)));
@@ -190,11 +202,14 @@ pub fn hourly_ui(f: &mut Frame, data: &AppData, region_index: usize) {
         if let Some(today) = report.weather.first() {
             for hourly_data in &today.hourly {
                 let time_f = hourly_data.time.parse::<i32>().unwrap_or(0) / 100;
+                let desc = &hourly_data.weatherDesc[0].value;
+                let icon = wttr::get_weather_icon(desc);
                 let line = format!(
-                    "  {:02}:00 - {}°C - {}",
+                    "  {:02}:00 - {}°C - {} {}",
                     time_f,
                     hourly_data.tempC,
-                    hourly_data.weatherDesc[0].value
+                    icon,
+                    desc
                 );
                 hourly_text.push(Line::from(line));
             }
