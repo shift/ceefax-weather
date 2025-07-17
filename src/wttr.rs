@@ -42,3 +42,25 @@ pub fn get_temp_color(temp: i32) -> Color {
     }
 }
 
+// --- Unit Tests ---
+// This module will only be compiled when running `cargo test`.
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_temperature_colors() {
+        // Test below 10 degrees
+        assert_eq!(get_temp_color(5), config::CEEFAX_GREEN);
+        assert_eq!(get_temp_color(-2), config::CEEFAX_GREEN);
+
+        // Test between 10 and 14 degrees
+        assert_eq!(get_temp_color(10), config::CEEFAX_CYAN);
+        assert_eq!(get_temp_color(14), config::CEEFAX_CYAN);
+
+        // Test 15 degrees and above
+        assert_eq!(get_temp_color(15), config::CEEFAX_YELLOW);
+        assert_eq!(get_temp_color(25), config::CEEFAX_YELLOW);
+    }
+}
+
