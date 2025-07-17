@@ -10,7 +10,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Style, Stylize},
     text::{Line, Span, Text},
-    widgets::{Block, Paragraph},
+    widgets::{Block, Paragraph, Wrap},
     Frame, Terminal,
 };
 use serde::Deserialize;
@@ -24,27 +24,32 @@ const CEEFAX_YELLOW: Color = Color::Rgb(204, 204, 0);
 const CEEFAX_WHITE: Color = Color::Rgb(255, 255, 255);
 const CEEFAX_BLACK: Color = Color::Rgb(0, 0, 0);
 
+// --- Unicode Teletext Mosaic Characters ---
+const TELETEXT_CHARS: [char; 16] = [
+    ' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█',
+];
+
 // --- Command Line Argument Parsing ---
 #[derive(Parser, Clone)]
 #[command(version, about, long_about = None)]
 struct Cli {
-    /// The country to display the weather map for (uk or germany)
     #[arg(short, long, value_name = "COUNTRY", default_value = "uk")]
     country: String,
 }
 
 // --- Data Structures for wttr.in JSON Response ---
 #[derive(Deserialize, Debug, Clone)]
-struct WeatherDesc {
-    value: String,
-}
+struct WeatherDesc { value: String }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(non_snake_case)] // To match the API's naming convention
 struct CurrentCondition {
-    #[serde(rename = "temp_C")]
-    temp_c: String,
-    #[serde(rename = "weatherDesc")]
-    weather_desc: Vec<WeatherDesc>,
+    temp_C: String,
+    FeelsLikeC: String,
+    windspeedKmph: String,
+    winddir16Point: String,
+    precipMM: String,
+    weatherDesc: Vec<WeatherDesc>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -82,21 +87,36 @@ const WEATHER_TITLE: &str = "
 // --- Static Map and Region Definitions ---
 const UK: Country = Country {
     map_template: &[
-        "                      SSSSS       ",
-        "                     SSSSSSS      ",
-        "   IIIII            SSSSSSSS      ",
-        "   IIIII             SSSSSS       ",
-        "    III             NNNNNNNN      ",
-        "                   NNNNNNNNN      ",
-        "                  NNNNNNNNNN      ",
-        "      WWWWWW      NNNNNNNNN       ",
-        "     WWWWWWWW      NNNNNN         ",
-        "    WWWWWWWWWW      EEEEEE        ",
-        "     WWWWWWWW      EEEEEEEE       ",
-        "      WWWWW       EEEEEEEEEE      ",
-        "                 EEEEEEEEEEEE     ",
-        "                EEEEEEEEEEEE      ",
-        "                 EEEEEEEE         ",
+        "                                SSSSSSSSSSSSSSS                         ",
+        "                              SSSSSSSSSSSSSSSSSSS                       ",
+        "                            SSSSSSSSSSSSSSSSSSSSSSS                     ",
+        "                          SSSSSSSSSSSSSSSSSSSSSSSSSS                    ",
+        "                        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
+        "      IIIIIIIIII      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
+        "    IIIIIIIIIIIIII    SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
+        "  IIIIIIIIIIIIIIIIII SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                    ",
+        "  IIIIIIIIIIIIIIIIII SSSSSSSSSSSSSSSSSSSSSSSSSSS                        ",
+        "  IIIIIIIIIIIIIIII    NNNNNNNNNNNNNNNNSSSSSSSS                          ",
+        "    IIIIIIIIIIII      NNNNNNNNNNNNNNNNNNNNNN                            ",
+        "      IIIIII          NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+        "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
+        "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
+        "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
+        "        WWWWWWWW      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
+        "      WWWWWWWWWWWW    NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+        "    WWWWWWWWWWWWWWWW  NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+        "    WWWWWWWWWWWWWWWWWW  NNNNNNNNNNNNNNNNNNNN                            ",
+        "    WWWWWWWWWWWWWWWWWWWW EEEEEENNNNNNNNNNNN                             ",
+        "    WWWWWWWWWWWWWWWWWWWW EEEEEEEEEEEEE                                  ",
+        "      WWWWWWWWWWWWWWWWWW EEEEEEEEEEEEEEE                                ",
+        "        WWWWWWWWWWWWWW   EEEEEEEEEEEEEEEEEE                             ",
+        "          WWWWWWWWWW     EEEEEEEEEEEEEEEEEEEEEE                         ",
+        "                       EEEEEEEEEEEEEEEEEEEEEEEEEE                       ",
+        "                     EEEEEEEEEEEEEEEEEEEEEEEEEEEE                       ",
+        "                     EEEEEEEEEEEEEEEEEEEEEEEEEE                         ",
+        "                       EEEEEEEEEEEEEEEEEEEEEE                           ",
+        "                         EEEEEEEEEEEEEEEE                               ",
+        "                           EEEEEEEEEE                                   ",
     ],
     regions: &[
         Region { name: "S. England", city: "London", char: 'E', temp_pos: (29, 12) },
@@ -111,21 +131,34 @@ const UK: Country = Country {
 
 const GERMANY: Country = Country {
     map_template: &[
-        "           NNNNNNNNNNN            ",
-        "          NNNNNNNNNNNNN           ",
-        "         NNNNNNNNNNNNNNN          ",
-        "   WWWWWWWWNNNNNNNNNEEEEEEE       ",
-        "  WWWWWWWWWWWWNNNNNEEEEEEEEE      ",
-        " WWWWWWWWWWWWWWWWNEEEEEEEEEEE     ",
-        "WWWWWWWWWWWWWWWWWNEEEEEEEEEEE     ",
-        "WWWWWWWWWWWWWWWWEEEEEEEEEEEE      ",
-        " WWWWWWWWWWWWWWEEEEEEEEEEEEE      ",
-        "  WWWWWWWWWWWWSSSSSEEEEEEEEE      ",
-        "   WWWWWWWWWSSSSSSSSSEEEEE        ",
-        "     WWWWWSSSSSSSSSSSSSS          ",
-        "      WSSSSSSSSSSSSSSSS           ",
-        "       SSSSSSSSSSSSSSS            ",
-        "        SSSSSSSSSSSS              ",
+        "                      NNNNNNNNNNNNNNNNNNNNNN                          ",
+        "                    NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+        "                  NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
+        "  WWWWWW        NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
+        "WWWWWWWWWW    NNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEE                      ",
+        "WWWWWWWWWWWWWWNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEE                    ",
+        "WWWWWWWWWWWWWWWWNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEEEEE                   ",
+        "WWWWWWWWWWWWWWWWWWNNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEE                  ",
+        "WWWWWWWWWWWWWWWWWWWWNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE                  ",
+        "WWWWWWWWWWWWWWWWWWWWWNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEE                  ",
+        "WWWWWWWWWWWWWWWWWWWWWWWWNEEEEEEEEEEEEEEEEEEEEEEEEEEE                  ",
+        "  WWWWWWWWWWWWWWWWWWWWWWEEEEEEEEEEEEEEEEEEEEEEEEEEEE                  ",
+        "    WWWWWWWWWWWWWWWWWWSSSSSSSEEEEEEEEEEEEEEEEEEEEEEE                  ",
+        "      WWWWWWWWWWWWWSSSSSSSSSSSSSEEEEEEEEEEEEEEEEEEEE                  ",
+        "        WWWWWWWWSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEEEE                    ",
+        "          WWWWSSSSSSSSSSSSSSSSSSSSSEEEEEEEEEEEEE                      ",
+        "           WSSSSSSSSSSSSSSSSSSSSSSSSSEEEEEEEEE                        ",
+        "          SSSSSSSSSSSSSSSSSSSSSSSSSSSSSEEEEE                          ",
+        "         SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSEE                            ",
+        "        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                              ",
+        "       SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                               ",
+        "      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                                  ",
+        "      SSSSSSSSSSSSSSSSSSSSSSSSSSSS                                    ",
+        "       SSSSSSSSSSSSSSSSSSSSSSSS                                       ",
+        "         SSSSSSSSSSSSSSSSSSSS                                         ",
+        "           SSSSSSSSSSSSSSSS                                           ",
+        "             SSSSSSSSSSSS                                             ",
+        "               SSSSSSSS                                               ",
     ],
     regions: &[
         Region { name: "Nord", city: "Hamburg", char: 'N', temp_pos: (18, 2) },
@@ -137,19 +170,28 @@ const GERMANY: Country = Country {
     footer_text: "Meist trocken, aber später örtlich leichter Regen möglich",
 };
 
+// --- Application State Management ---
+enum AppState<'a> {
+    Loading,
+    Loaded(AppData<'a>),
+}
+
+enum ViewState {
+    Main,
+    Details,
+}
+
 struct AppData<'a> {
     country: Country<'a>,
     reports: HashMap<&'a str, WeatherReport>,
     summaries: Vec<String>,
 }
 
-/// Fetches weather data for a given city from wttr.in.
 fn get_weather_data(client: &reqwest::blocking::Client, city: &str) -> Result<WeatherReport, reqwest::Error> {
     let url = format!("https://wttr.in/{}?format=j1", city);
     client.get(url).send()?.json::<WeatherReport>()
 }
 
-/// Returns a ratatui color based on the temperature in Celsius.
 fn get_temp_color(temp: i32) -> Color {
     match temp {
         t if t < 10 => CEEFAX_GREEN,
@@ -190,7 +232,8 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
         for region in country.regions {
             if let Ok(report) = get_weather_data(&client, region.city) {
                 if let Some(condition) = report.current_condition.first() {
-                    let desc = condition.weather_desc.first().map_or("N/A", |d| &d.value);
+                    // Corrected: Use weatherDesc to match the struct field name
+                    let desc = condition.weatherDesc.first().map_or("N/A", |d| &d.value);
                     summaries.push(format!("{}: {}", region.name, desc));
                     weather_reports.insert(region.name, report.clone());
                 }
@@ -199,37 +242,45 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
         let _ = tx.send(AppData { country, reports: weather_reports, summaries });
     });
 
-    let mut app_data: Option<AppData> = None;
+    let mut app_state = AppState::Loading;
+    let mut view_state = ViewState::Main;
     let mut counter: u16 = 100;
 
     loop {
-        terminal.draw(|f| {
-            if let Some(data) = &app_data {
-                ui(f, data);
-            } else {
-                loading_ui(f, counter);
-            }
+        terminal.draw(|f| match &app_state {
+            AppState::Loading => loading_ui(f, counter),
+            AppState::Loaded(data) => match view_state {
+                ViewState::Main => ui(f, data),
+                ViewState::Details => details_ui(f, data),
+            },
         })?;
 
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
-                if let KeyCode::Char(_) | KeyCode::Esc = key.code {
-                    return Ok(());
+                match view_state {
+                    ViewState::Main => match key.code {
+                        KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                        KeyCode::Char('d') => view_state = ViewState::Details,
+                        _ => {}
+                    },
+                    ViewState::Details => match key.code {
+                        KeyCode::Char('m') | KeyCode::Esc => view_state = ViewState::Main,
+                        _ => {}
+                    },
                 }
             }
         }
 
         if let Ok(data) = rx.try_recv() {
-            app_data = Some(data);
+            app_state = AppState::Loaded(data);
         }
 
-        if app_data.is_none() {
+        if matches!(app_state, AppState::Loading) {
             counter = 100 + (counter + 1 - 100) % 800;
         }
     }
 }
 
-/// Renders the loading screen UI.
 fn loading_ui(f: &mut Frame, counter: u16) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -245,9 +296,7 @@ fn loading_ui(f: &mut Frame, counter: u16) {
     let full_right_text_len = date_text.len() + time_text.len() + 3;
     let padding_len = if f.size().width as usize > left_text.len() + full_right_text_len {
         f.size().width as usize - left_text.len() - full_right_text_len
-    } else {
-        0
-    };
+    } else { 0 };
     let padding = " ".repeat(padding_len);
 
     let header_line = Line::from(vec![
@@ -268,39 +317,25 @@ fn loading_ui(f: &mut Frame, counter: u16) {
     f.render_widget(loading_body, chunks[1]);
 }
 
-/// The main UI drawing function.
 fn ui(f: &mut Frame, data: &AppData) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Min(1),
-            Constraint::Length(2),
-        ])
+        .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(2)])
         .split(f.size());
 
     let content_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(45),
-            Constraint::Percentage(55),
-        ])
+        .constraints([Constraint::Percentage(45), Constraint::Percentage(55)])
         .split(main_chunks[1]);
 
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(8),
-            Constraint::Min(10),
-        ])
+        .constraints([Constraint::Length(8), Constraint::Min(10)])
         .split(content_chunks[0]);
 
     let right_chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(5),
-            Constraint::Min(10),
-        ])
+        .constraints([Constraint::Length(5), Constraint::Min(10)])
         .split(content_chunks[1]);
 
     let title_style = Style::default().fg(CEEFAX_WHITE).bg(CEEFAX_BLACK);
@@ -312,9 +347,7 @@ fn ui(f: &mut Frame, data: &AppData) {
     let full_right_text_len = date_text.len() + time_text.len() + 3;
     let padding_len = if f.size().width as usize > left_text.len() + full_right_text_len {
         f.size().width as usize - left_text.len() - full_right_text_len
-    } else {
-        0
-    };
+    } else { 0 };
     let padding = " ".repeat(padding_len);
 
     let header_line = Line::from(vec![
@@ -327,13 +360,11 @@ fn ui(f: &mut Frame, data: &AppData) {
     let header_widget = Paragraph::new(header_line);
 
     let blue_bg_style = Style::default().fg(CEEFAX_WHITE).bg(CEEFAX_BLUE);
-
     let title_widget = Paragraph::new(WEATHER_TITLE).style(blue_bg_style.bold());
     let left_text_widget = Paragraph::new(Text::from(data.country.left_text.join("\n"))).style(blue_bg_style);
     let right_text_widget = Paragraph::new(Text::from(data.summaries.join("\n"))).style(blue_bg_style);
-    // Corrected: Pass a reference to data.country
     let map_widget = draw_map_widget(&data.country, &data.reports);
-    let footer_widget = Paragraph::new(data.country.footer_text).style(blue_bg_style);
+    let footer_widget = Paragraph::new(format!("[D]etails      {}", data.country.footer_text)).style(blue_bg_style);
 
     f.render_widget(Block::default().style(blue_bg_style), f.size());
     f.render_widget(header_widget, main_chunks[0]);
@@ -344,49 +375,101 @@ fn ui(f: &mut Frame, data: &AppData) {
     f.render_widget(footer_widget, main_chunks[2]);
 }
 
-/// Creates the map widget by drawing the colored regions and overlaying temperatures.
+fn details_ui(f: &mut Frame, data: &AppData) {
+    let main_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
+        .split(f.size());
+
+    let title_style = Style::default().fg(CEEFAX_WHITE).bg(CEEFAX_BLACK);
+    let header_text = "P182 Weather Details";
+    let header_widget = Paragraph::new(header_text).style(title_style.bold());
+
+    let mut details_text = Vec::new();
+    for region in data.country.regions {
+        if let Some(report) = data.reports.get(region.name) {
+            let condition = &report.current_condition[0];
+            details_text.push(Line::from(Span::styled(format!("-- {} --", region.name), Style::default().fg(CEEFAX_YELLOW).bold())));
+            details_text.push(Line::from(format!("  Feels Like: {}°C", condition.FeelsLikeC)));
+            details_text.push(Line::from(format!("  Wind: {} {} km/h", condition.winddir16Point, condition.windspeedKmph)));
+            details_text.push(Line::from(format!("  Precip: {} mm", condition.precipMM)));
+            details_text.push(Line::from(" ")); // Spacer
+        }
+    }
+    
+    let blue_bg_style = Style::default().fg(CEEFAX_WHITE).bg(CEEFAX_BLUE);
+    let details_widget = Paragraph::new(details_text)
+        .block(Block::default().style(blue_bg_style))
+        .wrap(Wrap { trim: true });
+
+    let footer_widget = Paragraph::new("[M]ap View").style(blue_bg_style);
+
+    f.render_widget(Block::default().style(blue_bg_style), f.size());
+    f.render_widget(header_widget, main_chunks[0]);
+    f.render_widget(details_widget, main_chunks[1]);
+    f.render_widget(footer_widget, main_chunks[2]);
+}
+
 fn draw_map_widget<'a>(country: &Country, reports: &HashMap<&str, WeatherReport>) -> Paragraph<'a> {
     let mut lines: Vec<Line> = Vec::new();
+    let template = country.map_template;
 
-    for (y, line_str) in country.map_template.iter().enumerate() {
+    for y in (0..template.len()).step_by(2) {
         let mut spans: Vec<Span> = Vec::new();
-        for (x, template_char) in line_str.chars().enumerate() {
-            let mut bg_color = CEEFAX_BLUE;
-            let mut is_land = false;
+        for x in (0..template[y].len()).step_by(2) {
+            let tl = template[y].chars().nth(x).unwrap_or(' ');
+            let tr = template[y].chars().nth(x + 1).unwrap_or(' ');
+            let bl = if y + 1 < template.len() { template[y + 1].chars().nth(x).unwrap_or(' ') } else { ' ' };
+            let br = if y + 1 < template.len() { template[y + 1].chars().nth(x + 1).unwrap_or(' ') } else { ' ' };
 
-            if template_char != ' ' {
+            // Corrected: Removed unused 'pixels' variable
+            let mut land_pixels = HashMap::new();
+            let mut bitmask = 0;
+
+            if tl != ' ' { bitmask |= 1; *land_pixels.entry(tl).or_insert(0) += 1; }
+            if tr != ' ' { bitmask |= 2; *land_pixels.entry(tr).or_insert(0) += 1; }
+            if bl != ' ' { bitmask |= 4; *land_pixels.entry(bl).or_insert(0) += 1; }
+            if br != ' ' { bitmask |= 8; *land_pixels.entry(br).or_insert(0) += 1; }
+
+            let dominant_char = land_pixels.into_iter().max_by_key(|&(_, count)| count).map(|(c, _)| c);
+            let mut bg_color = CEEFAX_BLUE;
+            if let Some(dc) = dominant_char {
                 for region in country.regions {
-                    if region.char == template_char {
+                    if region.char == dc {
                         if let Some(report) = reports.get(region.name) {
-                            let temp = report.current_condition[0].temp_c.parse::<i32>().unwrap_or(0);
+                            let temp = report.current_condition[0].temp_C.parse::<i32>().unwrap_or(0);
                             bg_color = get_temp_color(temp);
                         }
-                        is_land = true;
                         break;
                     }
                 }
             }
-
-            let mut temp_char = None;
-            for region in country.regions {
-                if let Some(report) = reports.get(region.name) {
-                    let temp_str = &report.current_condition[0].temp_c;
-                    let (temp_x, temp_y) = region.temp_pos;
-                    if y as u16 == temp_y && (x as u16 >= temp_x) && (x < (temp_x + temp_str.len() as u16) as usize) {
-                        temp_char = temp_str.chars().nth((x as u16 - temp_x) as usize);
-                        break;
-                    }
-                }
-            }
-
-            if let Some(tc) = temp_char {
-                spans.push(Span::styled(tc.to_string(), Style::new().fg(CEEFAX_WHITE).bold().bg(bg_color)));
-            } else {
-                let char_to_draw = if is_land { "█" } else { " " };
-                spans.push(Span::styled(char_to_draw, Style::new().bg(bg_color)));
-            }
+            
+            let mosaic_char = TELETEXT_CHARS[bitmask];
+            spans.push(Span::styled(mosaic_char.to_string(), Style::new().bg(bg_color)));
         }
         lines.push(Line::from(spans));
+    }
+    
+    for region in country.regions {
+        if let Some(report) = reports.get(region.name) {
+            let temp_str = &report.current_condition[0].temp_C;
+            let (temp_x, temp_y) = (region.temp_pos.0 / 2, region.temp_pos.1 / 2);
+
+            if (temp_y as usize) < lines.len() {
+                for (i, temp_digit) in temp_str.chars().enumerate() {
+                    let x_pos = (temp_x as usize) + i;
+                    if x_pos < lines[temp_y as usize].spans.len() {
+                        let original_span = &lines[temp_y as usize].spans[x_pos];
+                        let bg_color = original_span.style.bg.unwrap_or(CEEFAX_BLUE);
+                        lines[temp_y as usize].spans[x_pos] = Span::styled(
+                            temp_digit.to_string(),
+                            Style::new().fg(CEEFAX_WHITE).bold().bg(bg_color),
+                        );
+                    }
+                }
+            }
+        }
     }
 
     Paragraph::new(Text::from(lines))
