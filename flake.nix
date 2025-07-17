@@ -10,34 +10,34 @@
   outputs = { self, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        # Use the rust-overlay to get the latest stable Rust toolchain
         overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
           inherit system overlays;
         };
 
-        # Define the Rust toolchain to use
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [ "rust-src" ];
         };
 
       in
       {
-        # The `nix build` command will produce this package
         packages.default = pkgs.rustPlatform.buildRustPackage {
           pname = "ceefax-weather";
-          version = "0.1.0";
+          version = "0.2.0";
 
           src = ./.;
 
-          # This file is crucial for reproducible builds in Rust projects with Nix
           cargoLock.lockFile = ./Cargo.lock;
 
-          # Dependencies needed at build time
           nativeBuildInputs = [ pkgs.pkg-config ];
-          
-          # Dependencies needed by the Rust crates
           buildInputs = [ pkgs.openssl ];
+
+          # This hook ensures the 'templates' directory is copied into the final build output,
+          # so the application can find the .toml files at runtime.
+          postInstall = ''
+            mkdir -p $out/bin
+            cp -r templates $out/bin/
+          '';
 
           meta = {
             description = "Ceefax-style weather map using wttr.in, written in Rust";
@@ -45,12 +45,10 @@
           };
         };
 
-        # The `nix run` command will execute this app
         apps.default = flake-utils.lib.mkApp {
           drv = self.packages.${system}.default;
         };
 
-        # A development shell can be entered with `nix develop`
         devShells.default = pkgs.mkShell {
           inputsFrom = [ self.packages.${system}.default ];
           buildInputs = [ rustToolchain pkgs.rust-analyzer ];
