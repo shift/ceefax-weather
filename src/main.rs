@@ -1,4 +1,4 @@
-use chrono::Local;
+use chrono::{Local, DateTime};
 use clap::Parser;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
@@ -14,7 +14,7 @@ use ratatui::{
     Frame, Terminal,
 };
 use serde::Deserialize;
-use std::{collections::HashMap, io, sync::mpsc, thread, time::Duration};
+use std::{collections::HashMap, io, sync::mpsc, thread, time::{Duration, Instant}};
 
 // --- CEEFAX Color Palette ---
 const CEEFAX_BLUE: Color = Color::Rgb(0, 0, 170);
@@ -29,6 +29,9 @@ const TELETEXT_CHARS: [char; 16] = [
     ' ', '▘', '▝', '▀', '▖', '▌', '▞', '▛', '▗', '▚', '▐', '▜', '▄', '▙', '▟', '█',
 ];
 
+// --- Application Configuration ---
+const REFRESH_INTERVAL: Duration = Duration::from_secs(15 * 60); // 15 minutes
+
 // --- Command Line Argument Parsing ---
 #[derive(Parser, Clone)]
 #[command(version, about, long_about = None)]
@@ -42,7 +45,7 @@ struct Cli {
 struct WeatherDesc { value: String }
 
 #[derive(Deserialize, Debug, Clone)]
-#[allow(non_snake_case)] // To match the API's naming convention
+#[allow(non_snake_case)]
 struct CurrentCondition {
     temp_C: String,
     FeelsLikeC: String,
@@ -171,20 +174,24 @@ const GERMANY: Country = Country {
 };
 
 // --- Application State Management ---
+struct AppData<'a> {
+    country: Country<'a>,
+    reports: HashMap<&'a str, WeatherReport>,
+    summaries: Vec<String>,
+}
+
 enum AppState<'a> {
     Loading,
-    Loaded(AppData<'a>),
+    Loaded {
+        data: AppData<'a>,
+        updated_at: DateTime<Local>,
+        last_fetch: Instant,
+    },
 }
 
 enum ViewState {
     Main,
     Details,
-}
-
-struct AppData<'a> {
-    country: Country<'a>,
-    reports: HashMap<&'a str, WeatherReport>,
-    summaries: Vec<String>,
 }
 
 fn get_weather_data(client: &reqwest::blocking::Client, city: &str) -> Result<WeatherReport, reqwest::Error> {
@@ -222,9 +229,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Country<'static>) -> io::Result<()> {
-    let (tx, rx) = mpsc::channel();
-
+fn spawn_fetch_thread(tx: mpsc::Sender<AppData<'static>>, country: Country<'static>) {
     thread::spawn(move || {
         let client = reqwest::blocking::Client::new();
         let mut weather_reports = HashMap::new();
@@ -232,7 +237,6 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
         for region in country.regions {
             if let Ok(report) = get_weather_data(&client, region.city) {
                 if let Some(condition) = report.current_condition.first() {
-                    // Corrected: Use weatherDesc to match the struct field name
                     let desc = condition.weatherDesc.first().map_or("N/A", |d| &d.value);
                     summaries.push(format!("{}: {}", region.name, desc));
                     weather_reports.insert(region.name, report.clone());
@@ -241,6 +245,11 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
         }
         let _ = tx.send(AppData { country, reports: weather_reports, summaries });
     });
+}
+
+fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Country<'static>) -> io::Result<()> {
+    let (tx, rx) = mpsc::channel();
+    spawn_fetch_thread(tx.clone(), country);
 
     let mut app_state = AppState::Loading;
     let mut view_state = ViewState::Main;
@@ -249,18 +258,23 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
     loop {
         terminal.draw(|f| match &app_state {
             AppState::Loading => loading_ui(f, counter),
-            AppState::Loaded(data) => match view_state {
-                ViewState::Main => ui(f, data),
+            AppState::Loaded { data, updated_at, .. } => match view_state {
+                ViewState::Main => ui(f, data, updated_at),
                 ViewState::Details => details_ui(f, data),
             },
         })?;
 
+        // --- Event Handling ---
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
                 match view_state {
                     ViewState::Main => match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                         KeyCode::Char('d') => view_state = ViewState::Details,
+                        KeyCode::Char('r') => {
+                            app_state = AppState::Loading;
+                            spawn_fetch_thread(tx.clone(), country);
+                        },
                         _ => {}
                     },
                     ViewState::Details => match key.code {
@@ -271,8 +285,20 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
             }
         }
 
+        // --- State Update ---
         if let Ok(data) = rx.try_recv() {
-            app_state = AppState::Loaded(data);
+            app_state = AppState::Loaded {
+                data,
+                updated_at: Local::now(),
+                last_fetch: Instant::now(),
+            };
+        }
+
+        if let AppState::Loaded { last_fetch, .. } = app_state {
+            if last_fetch.elapsed() > REFRESH_INTERVAL {
+                app_state = AppState::Loading;
+                spawn_fetch_thread(tx.clone(), country);
+            }
         }
 
         if matches!(app_state, AppState::Loading) {
@@ -317,7 +343,7 @@ fn loading_ui(f: &mut Frame, counter: u16) {
     f.render_widget(loading_body, chunks[1]);
 }
 
-fn ui(f: &mut Frame, data: &AppData) {
+fn ui(f: &mut Frame, data: &AppData, updated_at: &DateTime<Local>) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(2)])
@@ -364,7 +390,12 @@ fn ui(f: &mut Frame, data: &AppData) {
     let left_text_widget = Paragraph::new(Text::from(data.country.left_text.join("\n"))).style(blue_bg_style);
     let right_text_widget = Paragraph::new(Text::from(data.summaries.join("\n"))).style(blue_bg_style);
     let map_widget = draw_map_widget(&data.country, &data.reports);
-    let footer_widget = Paragraph::new(format!("[D]etails      {}", data.country.footer_text)).style(blue_bg_style);
+    let footer_text = format!(
+        "[D]etails [R]efresh      Updated: {}      {}",
+        updated_at.format("%H:%M:%S"),
+        data.country.footer_text
+    );
+    let footer_widget = Paragraph::new(footer_text).style(blue_bg_style);
 
     f.render_widget(Block::default().style(blue_bg_style), f.size());
     f.render_widget(header_widget, main_chunks[0]);
@@ -393,7 +424,7 @@ fn details_ui(f: &mut Frame, data: &AppData) {
             details_text.push(Line::from(format!("  Feels Like: {}°C", condition.FeelsLikeC)));
             details_text.push(Line::from(format!("  Wind: {} {} km/h", condition.winddir16Point, condition.windspeedKmph)));
             details_text.push(Line::from(format!("  Precip: {} mm", condition.precipMM)));
-            details_text.push(Line::from(" ")); // Spacer
+            details_text.push(Line::from(" "));
         }
     }
     
@@ -422,7 +453,6 @@ fn draw_map_widget<'a>(country: &Country, reports: &HashMap<&str, WeatherReport>
             let bl = if y + 1 < template.len() { template[y + 1].chars().nth(x).unwrap_or(' ') } else { ' ' };
             let br = if y + 1 < template.len() { template[y + 1].chars().nth(x + 1).unwrap_or(' ') } else { ' ' };
 
-            // Corrected: Removed unused 'pixels' variable
             let mut land_pixels = HashMap::new();
             let mut bitmask = 0;
 
