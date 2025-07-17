@@ -40,31 +40,49 @@ pub struct WeatherReport {
     pub weather: Vec<WeatherDay>,
 }
 
-pub fn get_weather_data(
-    client: &reqwest::blocking::Client,
-    city: &str,
-) -> Result<WeatherReport, String> {
-    let url = format!("https://wttr.in/{}?format=j1", city);
-    let response = client
-        .get(url)
-        .send()
-        .map_err(|e| format!("Network request failed: {}", e))?;
+/// The trait that defines our contract for any weather data provider.
+pub trait WeatherClient: Send + Sync + 'static {
+    fn fetch(&self, city: &str) -> Result<WeatherReport, String>;
+}
 
-    let text = response
-        .text()
-        .map_err(|e| format!("Failed to read response body: {}", e))?;
+/// The implementation that makes real network calls to wttr.in.
+pub struct LiveWeatherClient {
+    client: reqwest::blocking::Client,
+}
 
-    match serde_json::from_str::<WeatherReport>(&text) {
-        Ok(report) => Ok(report),
-        Err(e) => {
-            let pretty_payload = match serde_json::from_str::<serde_json::Value>(&text) {
-                Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_else(|_| text.clone()),
-                Err(_) => text,
-            };
-            Err(format!(
-                "Failed to decode API response: {}\n\n-- API Payload --\n{}",
-                e, pretty_payload
-            ))
+impl LiveWeatherClient {
+    pub fn new() -> Self {
+        Self {
+            client: reqwest::blocking::Client::new(),
+        }
+    }
+}
+
+impl WeatherClient for LiveWeatherClient {
+    fn fetch(&self, city: &str) -> Result<WeatherReport, String> {
+        let url = format!("https://wttr.in/{}?format=j1", city);
+        let response = self
+            .client
+            .get(url)
+            .send()
+            .map_err(|e| format!("Network request failed: {}", e))?;
+
+        let text = response
+            .text()
+            .map_err(|e| format!("Failed to read response body: {}", e))?;
+
+        match serde_json::from_str::<WeatherReport>(&text) {
+            Ok(report) => Ok(report),
+            Err(e) => {
+                let pretty_payload = match serde_json::from_str::<serde_json::Value>(&text) {
+                    Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_else(|_| text.clone()),
+                    Err(_) => text,
+                };
+                Err(format!(
+                    "Failed to decode API response: {}\n\n-- API Payload --\n{}",
+                    e, pretty_payload
+                ))
+            }
         }
     }
 }
@@ -77,6 +95,7 @@ pub fn get_temp_color(temp: i32) -> Color {
     }
 }
 
+// --- Unit and Integration Tests ---
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,6 +105,55 @@ mod tests {
         assert_eq!(get_temp_color(5), config::CEEFAX_GREEN);
         assert_eq!(get_temp_color(14), config::CEEFAX_CYAN);
         assert_eq!(get_temp_color(25), config::CEEFAX_YELLOW);
+    }
+
+    /// A mock client for testing without network access.
+    struct MockWeatherClient {
+        mock_data: String,
+    }
+
+    impl WeatherClient for MockWeatherClient {
+        fn fetch(&self, _city: &str) -> Result<WeatherReport, String> {
+            serde_json::from_str(&self.mock_data)
+                .map_err(|e| format!("Mock data parsing failed: {}", e))
+        }
+    }
+
+    /// An integration-style test for the data fetching logic.
+    #[test]
+    fn test_successful_data_fetch_with_mock() {
+        let mock_json = r#"
+        {
+            "current_condition": [
+                {
+                    "temp_C": "15",
+                    "FeelsLikeC": "14",
+                    "windspeedKmph": "10",
+                    "winddir16Point": "W",
+                    "precipMM": "0.0",
+                    "weatherDesc": [{"value": "Sunny"}]
+                }
+            ],
+            "weather": [
+                {
+                    "hourly": [
+                        {"time": "0", "tempC": "10", "weatherDesc": [{"value": "Clear"}]},
+                        {"time": "300", "tempC": "12", "weatherDesc": [{"value": "Partly cloudy"}]}
+                    ]
+                }
+            ]
+        }
+        "#;
+
+        let mock_client = MockWeatherClient {
+            mock_data: mock_json.to_string(),
+        };
+
+        let result = mock_client.fetch("test-city");
+        assert!(result.is_ok());
+        let report = result.unwrap();
+        assert_eq!(report.current_condition[0].temp_C, "15");
+        assert_eq!(report.weather[0].hourly.len(), 2);
     }
 }
 
