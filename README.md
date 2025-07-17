@@ -1,5 +1,7 @@
 # CEEFAX Weather Map
 
+[![asciicast](https://asciinema.org/a/e1xnWiUdWwjNQ5UYO4s0s7cCr.svg)](https://asciinema.org/a/e1xnWiUdWwjNQ5UYO4s0s7cCr)
+
 A Rust-based console application that fetches weather data from `wttr.in` and displays it as a retro CEEFAX/TELETEXT-style weather map.
 
 Fully created via promting Gemini 2.5 Pro.
