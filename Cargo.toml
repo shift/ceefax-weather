@@ -23,5 +23,5 @@ chrono = "0.4"
 ratatui = "0.27"
 
 # The terminal backend for ratatui
-crossterm = "0.27"
+crossterm = "0.29"
 
