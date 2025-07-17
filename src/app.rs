@@ -14,9 +14,9 @@ use std::{
 pub struct AppData {
     pub country: Arc<config::Country>,
     pub reports: wttr::WeatherReports,
-    pub summaries: Vec<String>,
-    pub footer_text: String,
-    pub left_text: String,
+    pub summaries: Vec<(String, &'static str)>, // (description, icon)
+    pub footer_text: (String, &'static str),    // (description, icon)
+    pub left_text: (String, &'static str),      // (description, icon)
 }
 
 pub enum AppState {
@@ -49,7 +49,8 @@ fn spawn_fetch_thread(
                 Ok(report) => {
                     if let Some(condition) = report.current_condition.first() {
                         let desc = condition.weatherDesc.first().map_or("N/A", |d| &d.value);
-                        summaries.push(format!("{}: {}", region.name, desc));
+                        let icon = wttr::get_weather_icon(desc);
+                        summaries.push((format!("{}: {}", region.name, desc), icon));
                         weather_reports.insert(region.name.clone(), report.clone());
                     }
                 }
@@ -60,18 +61,22 @@ fn spawn_fetch_thread(
             }
         }
 
-        let footer_text = country.regions.first()
+        let footer_desc = country.regions.first()
             .and_then(|region| weather_reports.get(&region.name))
             .and_then(|report| report.current_condition.first())
             .and_then(|condition| condition.weatherDesc.first())
             .map_or_else(|| "Weather summary unavailable.".to_string(), |desc| desc.value.clone());
+        let footer_icon = wttr::get_weather_icon(&footer_desc);
+        let footer_text = (footer_desc, footer_icon);
 
-        let left_text = country.regions.get(1)
+        let left_desc = country.regions.get(1)
             .or_else(|| country.regions.first())
             .and_then(|region| weather_reports.get(&region.name))
             .and_then(|report| report.current_condition.first())
             .and_then(|condition| condition.weatherDesc.first())
             .map_or_else(|| "No specific forecast.".to_string(), |desc| desc.value.clone());
+        let left_icon = wttr::get_weather_icon(&left_desc);
+        let left_text = (left_desc, left_icon);
 
         let _ = tx.send(Ok(AppData {
             country,
