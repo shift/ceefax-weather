@@ -95,6 +95,26 @@ pub fn get_temp_color(temp: i32) -> Color {
     }
 }
 
+/// Maps a weather description string to a Unicode symbol string slice.
+pub fn get_weather_icon(description: &str) -> &'static str {
+    let desc_lower = description.to_lowercase();
+    match desc_lower {
+        s if s.contains("sunny") => "☀️",
+        s if s.contains("clear") => "🌙",
+        s if s.contains("partly cloudy") => "⛅",
+        s if s.contains("cloudy") => "☁️",
+        s if s.contains("overcast") => "🌥️",
+        s if s.contains("mist") | s.contains("fog") => "🌫️",
+        s if s.contains("drizzle") | s.contains("light rain") => "🌦️",
+        s if s.contains("rain") | s.contains("shower") => "🌧️",
+        s if s.contains("sleet") => "🌨️",
+        s if s.contains("snow") => "❄️",
+        s if s.contains("thunder") => "🌩️",
+        _ => "?",
+    }
+}
+
+
 // --- Unit and Integration Tests ---
 #[cfg(test)]
 mod tests {
@@ -154,6 +174,15 @@ mod tests {
         let report = result.unwrap();
         assert_eq!(report.current_condition[0].temp_C, "15");
         assert_eq!(report.weather[0].hourly.len(), 2);
+    }
+
+    #[test]
+    fn test_weather_icons() {
+        assert_eq!(get_weather_icon("Sunny"), "☀️");
+        assert_eq!(get_weather_icon("Light rain shower"), "🌦️");
+        assert_eq!(get_weather_icon("Heavy snow"), "❄️");
+        assert_eq!(get_weather_icon("Thundery outbreaks possible"), "🌩️");
+        assert_eq!(get_weather_icon("Unknown description"), "?");
     }
 }
 
