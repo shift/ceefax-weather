@@ -1,0 +1,63 @@
+map_template = [
+    "                                SSSSSSSSSSSSSSS                         ",
+    "                              SSSSSSSSSSSSSSSSSSS                       ",
+    "                            SSSSSSSSSSSSSSSSSSSSSSS                     ",
+    "                          SSSSSSSSSSSSSSSSSSSSSSSSSS                    ",
+    "                        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
+    "      IIIIIIIIII      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
+    "    IIIIIIIIIIIIII    SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
+    "  IIIIIIIIIIIIIIIIII SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                    ",
+    "  IIIIIIIIIIIIIIIIII SSSSSSSSSSSSSSSSSSSSSSSSSSS                        ",
+    "  IIIIIIIIIIIIIIII    NNNNNNNNNNNNNNNNSSSSSSSS                          ",
+    "    IIIIIIIIIIII      NNNNNNNNNNNNNNNNNNNNNN                            ",
+    "      IIIIII          NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+    "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
+    "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
+    "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
+    "        WWWWWWWW      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
+    "      WWWWWWWWWWWW    NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+    "    WWWWWWWWWWWWWWWW  NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+    "    WWWWWWWWWWWWWWWWWW  NNNNNNNNNNNNNNNNNNNN                            ",
+    "    WWWWWWWWWWWWWWWWWWWW EEEEEENNNNNNNNNNNN                             ",
+    "    WWWWWWWWWWWWWWWWWWWW EEEEEEEEEEEEE                                  ",
+    "      WWWWWWWWWWWWWWWWWW EEEEEEEEEEEEEEE                                ",
+    "        WWWWWWWWWWWWWW   EEEEEEEEEEEEEEEEEE                             ",
+    "          WWWWWWWWWW     EEEEEEEEEEEEEEEEEEEEEE                         ",
+    "                       EEEEEEEEEEEEEEEEEEEEEEEEEE                       ",
+    "                     EEEEEEEEEEEEEEEEEEEEEEEEEEEE                       ",
+    "                     EEEEEEEEEEEEEEEEEEEEEEEEEE                         ",
+    "                       EEEEEEEEEEEEEEEEEEEEEE                           ",
+    "                         EEEEEEEEEEEEEEEE                               ",
+    "                           EEEEEEEEEE                                   ",
+]
+
+[[regions]]
+name = "S. England"
+city = "London"
+char = 'E'
+temp_pos = [29, 12]
+
+[[regions]]
+name = "Wales"
+city = "Cardiff"
+char = 'W'
+temp_pos = [8, 9]
+
+[[regions]]
+name = "N. England"
+city = "Manchester"
+char = 'N'
+temp_pos = [24, 6]
+
+[[regions]]
+name = "Scotland"
+city = "Edinburgh"
+char = 'S'
+temp_pos = [24, 2]
+
+[[regions]]
+name = "N. Ireland"
+city = "Belfast"
+char = 'I'
+temp_pos = [4, 3]
+

@@ -1,0 +1,55 @@
+map_template = [
+    "                      NNNNNNNNNNNNNNNNNNNNNN                          ",
+    "                    NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
+    "                  NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
+    "  WWWWWW        NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
+    "WWWWWWWWWW    NNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEE                      ",
+    "WWWWWWWWWWWWWWNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEE                    ",
+    "WWWWWWWWWWWWWWWWNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEEEEE                   ",
+    "WWWWWWWWWWWWWWWWWWNNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEE                  ",
+    "WWWWWWWWWWWWWWWWWWWWNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE                  ",
+    "WWWWWWWWWWWWWWWWWWWWWNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEE                  ",
+    "WWWWWWWWWWWWWWWWWWWWWWWWNEEEEEEEEEEEEEEEEEEEEEEEEEEE                  ",
+    "  WWWWWWWWWWWWWWWWWWWWWWEEEEEEEEEEEEEEEEEEEEEEEEEEEE                  ",
+    "    WWWWWWWWWWWWWWWWWWSSSSSSSEEEEEEEEEEEEEEEEEEEEEEE                  ",
+    "      WWWWWWWWWWWWWSSSSSSSSSSSSSEEEEEEEEEEEEEEEEEEEE                  ",
+    "        WWWWWWWWSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEEEE                    ",
+    "          WWWWSSSSSSSSSSSSSSSSSSSSSEEEEEEEEEEEEE                      ",
+    "           WSSSSSSSSSSSSSSSSSSSSSSSSSEEEEEEEEE                        ",
+    "          SSSSSSSSSSSSSSSSSSSSSSSSSSSSSEEEEE                          ",
+    "         SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSEE                            ",
+    "        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                              ",
+    "       SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                               ",
+    "      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                                  ",
+    "      SSSSSSSSSSSSSSSSSSSSSSSSSSSS                                    ",
+    "       SSSSSSSSSSSSSSSSSSSSSSSS                                       ",
+    "         SSSSSSSSSSSSSSSSSSSS                                         ",
+    "           SSSSSSSSSSSSSSSS                                           ",
+    "             SSSSSSSSSSSS                                             ",
+    "               SSSSSSSS                                               ",
+]
+
+[[regions]]
+name = "Nord"
+city = "Hamburg"
+char = 'N'
+temp_pos = [18, 2]
+
+[[regions]]
+name = "West"
+city = "Cologne"
+char = 'W'
+temp_pos = [6, 7]
+
+[[regions]]
+name = "Ost"
+city = "Berlin"
+char = 'E'
+temp_pos = [28, 7]
+
+[[regions]]
+name = "Süd"
+city = "Munich"
+char = 'S'
+temp_pos = [18, 12]
+
