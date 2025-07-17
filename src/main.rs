@@ -10,7 +10,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::backend::CrosstermBackend;
-use std::io;
+use std::{io, sync::Arc};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = config::Cli::parse();
@@ -22,6 +22,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = ratatui::Terminal::new(backend)?;
 
+    // Create the single, shareable client for the application's lifetime.
+    let client = Arc::new(wttr::LiveWeatherClient::new());
+
     loop {
         let country_config = config::load_country_config(&current_country_name).unwrap_or_else(|e| {
             eprintln!(
@@ -31,15 +34,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         });
 
-        match app::run_app(&mut terminal, country_config)? {
+        // Inject the client into the application loop.
+        match app::run_app(&mut terminal, country_config, client.clone())? {
             Some(new_country) => {
-                current_country_name = new_country; // Loop again with the new country
+                current_country_name = new_country;
             }
-            None => break, // Exit the loop and the program
+            None => break,
         }
     }
 
-    // Restore the terminal state
     disable_raw_mode()?;
     execute!(
         terminal.backend_mut(),
