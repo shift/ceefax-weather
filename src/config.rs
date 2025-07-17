@@ -1,6 +1,7 @@
 use clap::Parser;
 use ratatui::style::Color;
-use std::time::Duration;
+use serde::Deserialize;
+use std::{env, fs, io, time::Duration};
 
 // --- CEEFAX Color Palette ---
 pub const CEEFAX_BLUE: Color = Color::Rgb(0, 0, 170);
@@ -27,20 +28,18 @@ pub struct Cli {
 }
 
 // --- Map Configuration Structures ---
-#[derive(Clone, Copy)]
-pub struct Region<'a> {
-    pub name: &'a str,
-    pub city: &'a str,
+#[derive(Clone, Deserialize)]
+pub struct Region {
+    pub name: String,
+    pub city: String,
     pub char: char,
-    pub temp_pos: (u16, u16),
+    pub temp_pos: [u16; 2],
 }
 
-#[derive(Clone, Copy)]
-pub struct Country<'a> {
-    pub map_template: &'a [&'a str],
-    pub regions: &'a [Region<'a>],
-    pub left_text: &'a [&'a str],
-    pub footer_text: &'a str,
+#[derive(Clone, Deserialize)]
+pub struct Country {
+    pub map_template: Vec<String>,
+    pub regions: Vec<Region>,
 }
 
 // --- ASCII Art ---
@@ -53,89 +52,37 @@ pub const WEATHER_TITLE: &str = "
  ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝
 ";
 
-// --- Static Map and Region Definitions ---
-pub const UK: Country = Country {
-    map_template: &[
-        "                                SSSSSSSSSSSSSSS                         ",
-        "                              SSSSSSSSSSSSSSSSSSS                       ",
-        "                            SSSSSSSSSSSSSSSSSSSSSSS                     ",
-        "                          SSSSSSSSSSSSSSSSSSSSSSSSSS                    ",
-        "                        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
-        "      IIIIIIIIII      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
-        "    IIIIIIIIIIIIII    SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                  ",
-        "  IIIIIIIIIIIIIIIIII SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                    ",
-        "  IIIIIIIIIIIIIIIIII SSSSSSSSSSSSSSSSSSSSSSSSSSS                        ",
-        "  IIIIIIIIIIIIIIII    NNNNNNNNNNNNNNNNSSSSSSSS                          ",
-        "    IIIIIIIIIIII      NNNNNNNNNNNNNNNNNNNNNN                            ",
-        "      IIIIII          NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
-        "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
-        "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
-        "                      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
-        "        WWWWWWWW      NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                    ",
-        "      WWWWWWWWWWWW    NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
-        "    WWWWWWWWWWWWWWWW  NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
-        "    WWWWWWWWWWWWWWWWWW  NNNNNNNNNNNNNNNNNNNN                            ",
-        "    WWWWWWWWWWWWWWWWWWWW EEEEEENNNNNNNNNNNN                             ",
-        "    WWWWWWWWWWWWWWWWWWWW EEEEEEEEEEEEE                                  ",
-        "      WWWWWWWWWWWWWWWWWW EEEEEEEEEEEEEEE                                ",
-        "        WWWWWWWWWWWWWW   EEEEEEEEEEEEEEEEEE                             ",
-        "          WWWWWWWWWW     EEEEEEEEEEEEEEEEEEEEEE                         ",
-        "                       EEEEEEEEEEEEEEEEEEEEEEEEEE                       ",
-        "                     EEEEEEEEEEEEEEEEEEEEEEEEEEEE                       ",
-        "                     EEEEEEEEEEEEEEEEEEEEEEEEEE                         ",
-        "                       EEEEEEEEEEEEEEEEEEEEEE                           ",
-        "                         EEEEEEEEEEEEEEEE                               ",
-        "                           EEEEEEEEEE                                   ",
-    ],
-    regions: &[
-        Region { name: "S. England", city: "London", char: 'E', temp_pos: (29, 12) },
-        Region { name: "Wales", city: "Cardiff", char: 'W', temp_pos: (8, 9) },
-        Region { name: "N. England", city: "Manchester", char: 'N', temp_pos: (24, 6) },
-        Region { name: "Scotland", city: "Edinburgh", char: 'S', temp_pos: (24, 2) },
-        Region { name: "N. Ireland", city: "Belfast", char: 'I', temp_pos: (4, 3) },
-    ],
-    left_text: &["TONIGHT:", "", "CLOUDY with", "patches of", "hill FOG", "", "RAIN", "moving in", "from the", "East"],
-    footer_text: "Mainly DRY but a little RAIN in places later",
-};
+/// Loads a country configuration from a TOML file.
+pub fn load_country_config(name: &str) -> Result<Country, Box<dyn std::error::Error>> {
+    let mut exe_path = env::current_exe()?;
+    exe_path.pop();
+    let filename = exe_path.join("templates").join(format!("{}.toml", name));
+    
+    let config_str = fs::read_to_string(&filename)
+        .map_err(|e| format!("Failed to read config file at {:?}: {}", filename, e))?;
+    
+    let country: Country = toml::from_str(&config_str)
+        .map_err(|e| format!("Failed to parse TOML from {:?}: {}", filename, e))?;
+        
+    Ok(country)
+}
 
-pub const GERMANY: Country = Country {
-    map_template: &[
-        "                      NNNNNNNNNNNNNNNNNNNNNN                          ",
-        "                    NNNNNNNNNNNNNNNNNNNNNNNNNN                        ",
-        "                  NNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
-        "  WWWWWW        NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN                      ",
-        "WWWWWWWWWW    NNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEE                      ",
-        "WWWWWWWWWWWWWWNNNNNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEE                    ",
-        "WWWWWWWWWWWWWWWWNNNNNNNNNNNNNNNNNNNNEEEEEEEEEEEEEEE                   ",
-        "WWWWWWWWWWWWWWWWWWNNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEE                  ",
-        "WWWWWWWWWWWWWWWWWWWWNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE                  ",
-        "WWWWWWWWWWWWWWWWWWWWWNNNNNNNEEEEEEEEEEEEEEEEEEEEEEEE                  ",
-        "WWWWWWWWWWWWWWWWWWWWWWWWNEEEEEEEEEEEEEEEEEEEEEEEEEEE                  ",
-        "  WWWWWWWWWWWWWWWWWWWWWWEEEEEEEEEEEEEEEEEEEEEEEEEEEE                  ",
-        "    WWWWWWWWWWWWWWWWWWSSSSSSSEEEEEEEEEEEEEEEEEEEEEEE                  ",
-        "      WWWWWWWWWWWWWSSSSSSSSSSSSSEEEEEEEEEEEEEEEEEEEE                  ",
-        "        WWWWWWWWSSSSSSSSSSSSSSSSSEEEEEEEEEEEEEEEEE                    ",
-        "          WWWWSSSSSSSSSSSSSSSSSSSSSEEEEEEEEEEEEE                      ",
-        "           WSSSSSSSSSSSSSSSSSSSSSSSSSEEEEEEEEE                        ",
-        "          SSSSSSSSSSSSSSSSSSSSSSSSSSSSSEEEEE                          ",
-        "         SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSEE                            ",
-        "        SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                              ",
-        "       SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                               ",
-        "      SSSSSSSSSSSSSSSSSSSSSSSSSSSSSS                                  ",
-        "      SSSSSSSSSSSSSSSSSSSSSSSSSSSS                                    ",
-        "       SSSSSSSSSSSSSSSSSSSSSSSS                                       ",
-        "         SSSSSSSSSSSSSSSSSSSS                                         ",
-        "           SSSSSSSSSSSSSSSS                                           ",
-        "             SSSSSSSSSSSS                                             ",
-        "               SSSSSSSS                                               ",
-    ],
-    regions: &[
-        Region { name: "Nord", city: "Hamburg", char: 'N', temp_pos: (18, 2) },
-        Region { name: "West", city: "Cologne", char: 'W', temp_pos: (6, 7) },
-        Region { name: "Ost", city: "Berlin", char: 'E', temp_pos: (28, 7) },
-        Region { name: "Süd", city: "Munich", char: 'S', temp_pos: (18, 12) },
-    ],
-    left_text: &["WETTER:", "", "Heute Nacht", "und Morgen:", "", "Meist", "trocken mit", "einigen", "Wolkenfeldern."],
-    footer_text: "Meist trocken, aber später örtlich leichter Regen möglich",
-};
+/// Scans the templates directory and returns a list of available country names.
+pub fn get_available_countries() -> io::Result<Vec<String>> {
+    let mut exe_path = env::current_exe()?;
+    exe_path.pop();
+    let templates_path = exe_path.join("templates");
+    
+    let mut countries = Vec::new();
+    for entry in fs::read_dir(templates_path)? {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                countries.push(stem.to_string());
+            }
+        }
+    }
+    Ok(countries)
+}
 
