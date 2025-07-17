@@ -1,0 +1,27 @@
+[package]
+name = "ceefax-weather"
+version = "0.2.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# For making HTTP requests to the wttr.in API
+reqwest = { version = "0.12", features = ["blocking", "json"] }
+
+# For serializing and deserializing JSON data
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# For parsing command-line arguments (e.g., --country)
+clap = { version = "4.5", features = ["derive"] }
+
+# For getting the current date and time
+chrono = "0.4"
+
+# The core terminal UI library
+ratatui = "0.27"
+
+# The terminal backend for ratatui
+crossterm = "0.27"
+
