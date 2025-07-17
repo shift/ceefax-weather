@@ -187,6 +187,7 @@ enum AppState<'a> {
         updated_at: DateTime<Local>,
         last_fetch: Instant,
     },
+    Error(String),
 }
 
 enum ViewState {
@@ -229,21 +230,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn spawn_fetch_thread(tx: mpsc::Sender<AppData<'static>>, country: Country<'static>) {
+fn spawn_fetch_thread(tx: mpsc::Sender<Result<AppData<'static>, String>>, country: Country<'static>) {
     thread::spawn(move || {
         let client = reqwest::blocking::Client::new();
         let mut weather_reports = HashMap::new();
         let mut summaries = Vec::new();
         for region in country.regions {
-            if let Ok(report) = get_weather_data(&client, region.city) {
-                if let Some(condition) = report.current_condition.first() {
-                    let desc = condition.weatherDesc.first().map_or("N/A", |d| &d.value);
-                    summaries.push(format!("{}: {}", region.name, desc));
-                    weather_reports.insert(region.name, report.clone());
+            match get_weather_data(&client, region.city) {
+                Ok(report) => {
+                    if let Some(condition) = report.current_condition.first() {
+                        let desc = condition.weatherDesc.first().map_or("N/A", |d| &d.value);
+                        summaries.push(format!("{}: {}", region.name, desc));
+                        weather_reports.insert(region.name, report.clone());
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(Err(format!("Failed to fetch weather for {}: {}", region.city, e)));
+                    return;
                 }
             }
         }
-        let _ = tx.send(AppData { country, reports: weather_reports, summaries });
+        let _ = tx.send(Ok(AppData { country, reports: weather_reports, summaries }));
     });
 }
 
@@ -262,36 +269,52 @@ fn run_app(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, country: Count
                 ViewState::Main => ui(f, data, updated_at),
                 ViewState::Details => details_ui(f, data),
             },
+            AppState::Error(e) => error_ui(f, e),
         })?;
 
         // --- Event Handling ---
         if event::poll(Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
-                match view_state {
-                    ViewState::Main => match key.code {
+                match app_state {
+                    AppState::Error(_) => match key.code {
                         KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
-                        KeyCode::Char('d') => view_state = ViewState::Details,
                         KeyCode::Char('r') => {
                             app_state = AppState::Loading;
                             spawn_fetch_thread(tx.clone(), country);
-                        },
+                        }
                         _ => {}
                     },
-                    ViewState::Details => match key.code {
-                        KeyCode::Char('m') | KeyCode::Esc => view_state = ViewState::Main,
-                        _ => {}
+                    _ => match view_state {
+                        ViewState::Main => match key.code {
+                            KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                            KeyCode::Char('d') => view_state = ViewState::Details,
+                            KeyCode::Char('r') => {
+                                app_state = AppState::Loading;
+                                spawn_fetch_thread(tx.clone(), country);
+                            },
+                            _ => {}
+                        },
+                        ViewState::Details => match key.code {
+                            KeyCode::Char('m') | KeyCode::Esc => view_state = ViewState::Main,
+                            _ => {}
+                        },
                     },
                 }
             }
         }
 
         // --- State Update ---
-        if let Ok(data) = rx.try_recv() {
-            app_state = AppState::Loaded {
-                data,
-                updated_at: Local::now(),
-                last_fetch: Instant::now(),
-            };
+        if let Ok(result) = rx.try_recv() {
+            match result {
+                Ok(data) => {
+                    app_state = AppState::Loaded {
+                        data,
+                        updated_at: Local::now(),
+                        last_fetch: Instant::now(),
+                    }
+                }
+                Err(e) => app_state = AppState::Error(e),
+            }
         }
 
         if let AppState::Loaded { last_fetch, .. } = app_state {
@@ -341,6 +364,30 @@ fn loading_ui(f: &mut Frame, counter: u16) {
     f.render_widget(Block::default().style(Style::default().bg(CEEFAX_BLUE)), f.size());
     f.render_widget(header_widget, chunks[0]);
     f.render_widget(loading_body, chunks[1]);
+}
+
+fn error_ui(f: &mut Frame, error: &str) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
+        .split(f.size());
+
+    let title_style = Style::default().fg(CEEFAX_WHITE).bg(CEEFAX_BLACK);
+    let header_text = "P404 ERROR";
+    let header_widget = Paragraph::new(header_text).style(title_style.bold());
+
+    let blue_bg_style = Style::default().fg(CEEFAX_WHITE).bg(CEEFAX_BLUE);
+    let error_body = Paragraph::new(format!("\n\nAn error occurred:\n\n{}", error))
+        .style(blue_bg_style)
+        .alignment(Alignment::Center)
+        .wrap(Wrap { trim: true });
+    
+    let footer_widget = Paragraph::new("[R]etry      [Q]uit").style(blue_bg_style);
+
+    f.render_widget(Block::default().style(blue_bg_style), f.size());
+    f.render_widget(header_widget, chunks[0]);
+    f.render_widget(error_body, chunks[1]);
+    f.render_widget(footer_widget, chunks[2]);
 }
 
 fn ui(f: &mut Frame, data: &AppData, updated_at: &DateTime<Local>) {
