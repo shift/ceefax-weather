@@ -145,7 +145,7 @@ pub fn main_ui(f: &mut Frame, data: &AppData, updated_at: &DateTime<Local>) {
     f.render_widget(footer_widget, main_chunks[2]);
 }
 
-pub fn details_ui(f: &mut Frame, data: &AppData) {
+pub fn details_ui(f: &mut Frame, data: &AppData, scroll: u16) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
@@ -176,7 +176,8 @@ pub fn details_ui(f: &mut Frame, data: &AppData) {
     let details_widget = Paragraph::new(details_text)
         .style(blue_bg_style)
         .block(Block::default().style(blue_bg_style))
-        .wrap(Wrap { trim: true });
+        .wrap(Wrap { trim: true })
+        .scroll((scroll, 0));
 
     let footer_widget = Paragraph::new("Select number for [H]ourly forecast, [M]ap View").style(blue_bg_style);
 
@@ -186,7 +187,7 @@ pub fn details_ui(f: &mut Frame, data: &AppData) {
     f.render_widget(footer_widget, main_chunks[2]);
 }
 
-pub fn hourly_ui(f: &mut Frame, data: &AppData, region_index: usize) {
+pub fn hourly_ui(f: &mut Frame, data: &AppData, region_index: usize, scroll: u16) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
@@ -219,7 +220,8 @@ pub fn hourly_ui(f: &mut Frame, data: &AppData, region_index: usize) {
     let blue_bg_style = Style::default().fg(config::CEEFAX_WHITE).bg(config::CEEFAX_BLUE);
     let hourly_widget = Paragraph::new(hourly_text)
         .style(blue_bg_style)
-        .block(Block::default().style(blue_bg_style));
+        .block(Block::default().style(blue_bg_style))
+        .scroll((scroll, 0));
 
     let footer_widget = Paragraph::new("[D]etails View").style(blue_bg_style);
 
@@ -229,7 +231,7 @@ pub fn hourly_ui(f: &mut Frame, data: &AppData, region_index: usize) {
     f.render_widget(footer_widget, main_chunks[2]);
 }
 
-pub fn select_country_ui(f: &mut Frame, available: &[String]) {
+pub fn select_country_ui(f: &mut Frame, available: &[String], scroll: u16) {
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
@@ -248,7 +250,8 @@ pub fn select_country_ui(f: &mut Frame, available: &[String]) {
     let blue_bg_style = Style::default().fg(config::CEEFAX_WHITE).bg(config::CEEFAX_BLUE);
     let list_widget = Paragraph::new(country_list_text)
         .style(blue_bg_style)
-        .block(Block::default().padding(Padding::new(2, 2, 1, 1)));
+        .block(Block::default().padding(Padding::new(2, 2, 1, 1)))
+        .scroll((scroll, 0));
 
     let footer_widget = Paragraph::new("[M]ap View").style(blue_bg_style);
 

@@ -14,9 +14,9 @@ use std::{
 pub struct AppData {
     pub country: Arc<config::Country>,
     pub reports: wttr::WeatherReports,
-    pub summaries: Vec<(String, &'static str)>, // (description, icon)
-    pub footer_text: (String, &'static str),    // (description, icon)
-    pub left_text: (String, &'static str),      // (description, icon)
+    pub summaries: Vec<(String, &'static str)>,
+    pub footer_text: (String, &'static str),
+    pub left_text: (String, &'static str),
 }
 
 pub enum AppState {
@@ -29,11 +29,12 @@ pub enum AppState {
     Error(String),
 }
 
+// ViewState now includes scroll position for list-based views.
 pub enum ViewState {
     Main,
-    Details,
-    Hourly { region_index: usize },
-    SelectCountry { available: Vec<String> },
+    Details { scroll: u16 },
+    Hourly { region_index: usize, scroll: u16 },
+    SelectCountry { available: Vec<String>, scroll: u16 },
 }
 
 fn spawn_fetch_thread(
@@ -108,9 +109,9 @@ pub fn run_app(
                 data, updated_at, ..
             } => match &view_state {
                 ViewState::Main => ui::main_ui(f, data, updated_at),
-                ViewState::Details => ui::details_ui(f, data),
-                ViewState::Hourly { region_index } => ui::hourly_ui(f, data, *region_index),
-                ViewState::SelectCountry { available } => ui::select_country_ui(f, available),
+                ViewState::Details { scroll } => ui::details_ui(f, data, *scroll),
+                ViewState::Hourly { region_index, scroll } => ui::hourly_ui(f, data, *region_index, *scroll),
+                ViewState::SelectCountry { available, scroll } => ui::select_country_ui(f, available, *scroll),
             },
             AppState::Error(e) => ui::error_ui(f, e),
         })?;
@@ -129,10 +130,10 @@ pub fn run_app(
                     AppState::Loaded { data, .. } => match &mut view_state {
                         ViewState::Main => match key.code {
                             KeyCode::Char('q') | KeyCode::Esc => return Ok(None),
-                            KeyCode::Char('d') => view_state = ViewState::Details,
+                            KeyCode::Char('d') => view_state = ViewState::Details { scroll: 0 },
                             KeyCode::Char('c') => {
                                 if let Ok(available) = config::get_available_countries() {
-                                    view_state = ViewState::SelectCountry { available };
+                                    view_state = ViewState::SelectCountry { available, scroll: 0 };
                                 }
                             }
                             KeyCode::Char('r') => {
@@ -141,24 +142,30 @@ pub fn run_app(
                             }
                             _ => {}
                         },
-                        ViewState::Details => match key.code {
+                        ViewState::Details { scroll } => match key.code {
                             KeyCode::Char('m') | KeyCode::Esc => view_state = ViewState::Main,
+                            KeyCode::Up => *scroll = scroll.saturating_sub(1),
+                            KeyCode::Down => *scroll = scroll.saturating_add(1),
                             KeyCode::Char(c) => {
                                 if let Some(digit) = c.to_digit(10) {
                                     let index = digit as usize;
                                     if index > 0 && index <= data.country.regions.len() {
-                                        view_state = ViewState::Hourly { region_index: index - 1 };
+                                        view_state = ViewState::Hourly { region_index: index - 1, scroll: 0 };
                                     }
                                 }
                             }
                             _ => {}
                         },
-                        ViewState::Hourly { .. } => match key.code {
-                            KeyCode::Char('d') | KeyCode::Esc => view_state = ViewState::Details,
+                        ViewState::Hourly { scroll, .. } => match key.code {
+                            KeyCode::Char('d') | KeyCode::Esc => view_state = ViewState::Details { scroll: 0 },
+                            KeyCode::Up => *scroll = scroll.saturating_sub(1),
+                            KeyCode::Down => *scroll = scroll.saturating_add(1),
                             _ => {}
                         },
-                        ViewState::SelectCountry { available } => match key.code {
+                        ViewState::SelectCountry { available, scroll } => match key.code {
                             KeyCode::Char('m') | KeyCode::Esc => view_state = ViewState::Main,
+                            KeyCode::Up => *scroll = scroll.saturating_sub(1),
+                            KeyCode::Down => *scroll = scroll.saturating_add(1),
                             KeyCode::Char(c) => {
                                 if let Some(digit) = c.to_digit(10) {
                                     let index = digit as usize;
