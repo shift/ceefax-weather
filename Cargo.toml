@@ -12,7 +12,7 @@ reqwest = { version = "0.12", features = ["blocking", "json"] }
 # For serializing and deserializing JSON and TOML data
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-toml = "0.8"
+toml = "0.9"
 
 # For parsing command-line arguments (e.g., --country)
 clap = { version = "4.5", features = ["derive"] }
